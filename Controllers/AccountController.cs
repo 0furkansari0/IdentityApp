@@ -10,11 +10,13 @@ namespace IdentityApp.Controllers
         private readonly UserManager<AppUser> _userManager;
         private readonly RoleManager<AppRole> _roleManager;
         private readonly SignInManager<AppUser> _signInManager;
-        public AccountController(UserManager<AppUser> userManager, RoleManager<AppRole> roleManager, SignInManager<AppUser> signInManager)
+        private readonly IEmailSender _emailSender;
+        public AccountController(UserManager<AppUser> userManager, RoleManager<AppRole> roleManager, SignInManager<AppUser> signInManager, IEmailSender emailSender)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _signInManager = signInManager;
+            _emailSender = emailSender;
         }
         public IActionResult Login()
         {
@@ -30,6 +32,12 @@ namespace IdentityApp.Controllers
                 if (user != null) 
                 {
                     await _signInManager.SignOutAsync();
+
+                    if(!await _userManager.IsEmailConfirmedAsync(user))
+                    {
+                        ModelState.AddModelError("", "Lütfen hesabınızı onaylayınız.");
+                        return View(model);
+                    }
 
                     var result = await _signInManager.PasswordSignInAsync(user, model.Password, model.RememberMe, true);
 
@@ -58,6 +66,77 @@ namespace IdentityApp.Controllers
             }
 
             return View(model);
+        }
+
+        public IActionResult Create()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Create(CreateViewModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                var user = new AppUser
+                {
+                    UserName = model.UserName,
+                    Email = model.Email,
+                    FullName = model.FullName
+                };
+
+                IdentityResult result = await _userManager.CreateAsync(user, model.Password);
+
+                if (result.Succeeded)
+                {
+                    var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+
+                    var url = Url.Action("ConfirmEmail", "Account", new {user.Id, token});
+
+                    //Email
+                    await _emailSender.SendEmainAsync(user.Email, "Hesap Onayı", $"Lütfen hesabınızı onaylamak için <a href='https://localhost:7116{url}'>linke tıklayınız<a>");
+
+             
+                    TempData["message"] = "Hesabınızı onaylamak için, mailinize gönderilen linke tıklayınız.";
+                    return RedirectToAction("Login","Account");
+                }
+
+                foreach (IdentityError error in result.Errors)
+                {
+                    ModelState.AddModelError("", error.Description);
+                }
+
+
+
+            }
+
+            return View(model);
+        }
+
+        public async Task<IActionResult> ConfirmEmail(string id, string token)
+        {
+            if(id == null || token == null)
+            {
+                TempData["message"] = "Geçersiz User veya Token Bilgisi.";
+                return View();
+            }
+
+            var user = await _userManager.FindByIdAsync(id);
+
+            if(user != null)
+            {
+                var result = await _userManager.ConfirmEmailAsync(user, token);
+
+                if(result.Succeeded)
+                {
+                    TempData["message"] = "Hesabınız Onaylandı.";
+                    return RedirectToAction("Login", "Account");
+                }
+            }
+
+            TempData["message"] = "Kullanıcı Bulunamadı";
+            return View();
+
         }
     }
 }
