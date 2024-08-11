@@ -1,10 +1,12 @@
 ﻿using IdentityApp.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.Data;
 
 namespace IdentityApp.Controllers
 {
+    [Authorize(Roles = "admin")]
     public class RolesController : Controller
     {
         private readonly RoleManager<AppRole> _roleManager;
@@ -17,6 +19,7 @@ namespace IdentityApp.Controllers
 
         public IActionResult Index()
         {
+
             return View(_roleManager.Roles);
         }
 

@@ -1,10 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using IdentityApp.Models;
 using IdentityApp.ViewModels;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,6 +13,7 @@ using Microsoft.Extensions.Logging;
 
 namespace IdentityApp.Controllers
 {
+    [Authorize(Roles ="admin")]
     public class UsersController : Controller
     {
         private UserManager<AppUser> _userManager;
@@ -21,8 +23,15 @@ namespace IdentityApp.Controllers
             _userManager = userManager;
             _roleManager = roleManager;
         }
+
+        //[AllowAnonymous] //Bütün Action lar admin için çalışır bunun dışında.
         public IActionResult Index()
         {
+            //if(!User.IsInRole("admin"))
+            //{
+            //    TempData["message"] = "Yetkiniz Bulunmuyor.";
+            //    return RedirectToAction("Login","Account");
+            //}
             ViewBag.Roles = _roleManager.Roles.Select(r => r.Name).ToListAsync();
             return View(_userManager.Users);
         }
